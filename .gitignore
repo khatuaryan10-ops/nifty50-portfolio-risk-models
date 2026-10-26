@@ -1,0 +1,13 @@
+# Large outputs of nifty50_efficient_frontier.py
+*.npz
+nifty50_portfolios.csv
+
+# Outputs written to the root when the scripts run; curated copies live in figures/ and results/
+/nifty50_*.png
+/nifty50_*.csv
+
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
