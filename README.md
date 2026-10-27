@@ -112,6 +112,85 @@ The forecasts are also compared with India VIX on a like-for-like basis. VIX is 
 
 ![Volatility attribution](figures/nifty50_vol_attribution.png)
 
+## Daily tracker
+
+`tracker.py` follows the min-variance and max-Sharpe portfolios from `results/nifty50_optimal_portfolios.csv` forward in time, one trading day at a time, against a benchmark. The target weights are frozen at inception and the portfolios are never re-optimised.
+
+```bash
+python tracker.py init      # once: freeze targets, fit the VaR models
+python tracker.py update    # each evening after the NSE close (GitHub Actions does this)
+python tracker.py dashboard # build the dashboard page into site/
+pytest                      # tests, no network needed
+```
+
+**Live dashboard:** https://khatuaryan10-ops.github.io/nifty50-portfolio-risk-models/. It is rebuilt after every evening run and shows value against the benchmark, drawdowns, daily return against VaR with breaches, current against target weights, rebalances, and the run log.
+
+### What is tracked
+
+One row per portfolio per trading day in `data/tracker.csv`:
+
+| Column | Meaning |
+|---|---|
+| `value`, `daily_return`, `cumulative_return` | Value starts at 100 on the inception date |
+| `vol_60d` | Annualised volatility of the last 60 daily returns (blank until 60 exist) |
+| `drawdown`, `max_drawdown` | Current and worst fall from the running peak |
+| `var_99_next` | 99% VaR for the next trading day, as a positive loss |
+| `breach` | 1 if today's loss exceeded the VaR set the previous evening |
+| `max_weight_drift` | Largest gap between a drifted weight and its target |
+| `sigma2_next`, `flags` | Model variance state (%²), and notes such as missing prices or a rebalance |
+
+**VaR** uses the top-down GJR-GARCH-X from script 3 (`gjr_fit`), fitted once at init on each portfolio's target-weight return series and never refitted. The fit starts on the first day all held stocks trade (late July 2021, when ETERNAL listed), so unlike script 3 it does not include COVID. Each evening, today's portfolio return and today's India VIX update the variance with one step of the same recursion. VaR is filtered historical simulation, as in script 3: the 1% quantile of the standardised training returns times tomorrow's σ.
+
+### How returns are computed, and why
+
+Every evening the tracker downloads the last ~10 trading days with `auto_adjust=False, actions=True`. From that single download it computes each stock's total return:
+
+  rₜ = (Closeₜ + Dividendₜ) / Closeₜ₋₁ − 1
+
+- **Total return, not price return.** Yahoo's `Close` excludes dividends, so the dividend is added back on its ex-date.
+- **One fresh download.** Yahoo adjusts `Close` for splits across the whole history it returns, so prices within one download are always on the same basis and a split inside the window causes no jump. Prices stored from an earlier download may be on a different basis, so returns are **never** computed from stored prices, and adjusted closes are never used. `data/prices_raw.csv` keeps the raw `Close`, `Dividends` and `Stock Splits` for audit only.
+- **Returns are the record.** Daily returns go to `data/returns.csv`. Values, drift and VaR are all built from them. History is only rewritten by the revision check below.
+
+**Portfolio accounting.** r_p,t = Σ wᵢ,ₜ₋₁ rᵢ,ₜ, using yesterday's drifted weights. Then Valueₜ = Valueₜ₋₁ (1 + r_p,t), and the weights drift: wᵢ,ₜ = wᵢ,ₜ₋₁ (1 + rᵢ,ₜ) / (1 + r_p,t). A stock with no price that day keeps its weight at 0% and is flagged. When its price returns, its return is measured from its last close, so the missed move is not lost.
+
+### Rebalance rule
+
+On the first trading day of each quarter, after that day's return is applied, the weights reset to target. Each rebalance is logged in `data/rebalances.csv` with weights before and after, and turnover = ½ Σ |w_after − w_before|.
+
+### Benchmark
+
+The default is **^NSEI, the Nifty 50 price index, which excludes dividends**. Every output labels it that way, and it understates the index's total return by roughly the dividend yield (about 1–1.5% a year). The Nifty 50 TRI is published by niftyindices.com, which has no public API and blocks automated requests, so the tracker does not scrape it. To use the TRI instead, download its history from niftyindices.com (Reports → Historical data → Total Return Index). Save it as `data/nifty50_tri.csv` with columns `Date, TRI`, run `python tracker.py init --benchmark tri`, and append each day's level before the evening run. The source is fixed at init, so the series is never a splice of two sources.
+
+### Data checks
+
+- **Incremental and idempotent.** Only dates after the last stored date are added. Rows are keyed on date and portfolio, so running `update` twice on the same day changes nothing.
+- **Gaps.** If runs were missed, the download window widens to reach back to the last stored date, and the job log says so.
+- **Revisions.** Each run recomputes the returns of the last 5 stored dates from the fresh download. If any stock or benchmark return differs by more than 0.05%, those rows are overwritten, everything after them is recomputed, and the change is logged.
+- **Holidays and incomplete days.** A day counts only if ^NSEI has a close, at least 90% of held stocks have one, and prices moved, so no zero-return holiday rows appear. A day missing too many stock prices waits for later runs. After 2 more sessions it goes in with 0% for the missing stocks.
+- **Flags.** Any stock move above 20%, and any close unchanged for 3+ trading days, is flagged.
+- **Job log.** `data/job_log.csv` gets one row per run: run time, status, dates added, revisions, warnings and errors.
+
+### Weekly stability record
+
+On Friday runs, `max_sharpe` and `min_variance_for_target` are re-solved on the trailing 5 years. The would-be weights and their turnover against the frozen targets go to `data/reoptimised_weights.csv`. This only measures how unstable the optimiser is. Nothing is traded on it.
+
+### Files and scheduling
+
+| File | Contents |
+|---|---|
+| `config/portfolios.yaml` | Frozen target weights, inception date, start value, benchmark |
+| `state/models.json` | GARCH parameters, FHS quantile, inception and latest variance state |
+| `data/tracker.csv`, `returns.csv`, `weights.csv` | Daily metrics, returns (plus India VIX) and drifted weights |
+| `data/rebalances.csv`, `reoptimised_weights.csv`, `job_log.csv`, `prices_raw.csv` | Logs and audit data |
+
+`.github/workflows/daily_tracker.yml` runs `update` Monday to Friday at 18:00 UTC (23:30 IST), commits `data/` and `state/`, then rebuilds the dashboard and deploys it to GitHub Pages. It can also be started by hand from the Actions tab. GitHub may start scheduled runs late, and it disables schedules in public repositories after 60 days without activity.
+
+### Tracker limitations
+
+- **Yahoo corporate actions.** NSE dividends are sometimes missing, and split adjustments sometimes arrive a day late. A late split shows up as a flagged move above 20%, which the revision check corrects if Yahoo fixes it within 5 days. Demergers are not adjusted at all.
+- **Frozen universe.** Index changes do not affect the portfolios. A held stock that is delisted or renamed keeps its weight at 0% and is flagged every day until handled by hand.
+- **Weights.** Weights below 1e-6 in the optimiser output are set to zero, and the rest renormalised, at init.
+
 ## Outputs
 
 | File | From | Contents |

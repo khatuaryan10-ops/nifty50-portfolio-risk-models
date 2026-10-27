@@ -1,0 +1,56 @@
+{
+  "units": "returns in %, variance in %^2 per day; VaR is a decimal loss",
+  "model": "top-down GJR-GARCH(1,1)-X with India VIX^2/252 (gjr_fit from nifty50_risk_layers.py), fitted once",
+  "min_variance": {
+    "params": {
+      "omega": 0.03407533655521217,
+      "alpha": 0.0,
+      "gamma": 0.14725269972040395,
+      "beta": 0.5914213253759114,
+      "delta": 0.13578326967788418
+    },
+    "s0": 0.48484231510014747,
+    "neg_log_lik": 113.81504295016936,
+    "persistence": 0.6650476752361134,
+    "z_quantile": -2.5569698428573964,
+    "var_level": 0.01,
+    "fit_start": "2021-07-26",
+    "fit_end": "2026-10-26",
+    "n_obs": 1299,
+    "last_date": "2026-10-26",
+    "sigma2_next": 0.47595955166009263,
+    "var_99_next": 0.017640489389204653,
+    "name": "Min variance",
+    "inception_state": {
+      "last_date": "2026-10-26",
+      "sigma2_next": 0.47595955166009263,
+      "var_99_next": 0.017640489389204653
+    }
+  },
+  "max_sharpe": {
+    "params": {
+      "omega": 0.0774624869205317,
+      "alpha": 0.017500868064713203,
+      "gamma": 0.17154412776193317,
+      "beta": 0.5634331861006352,
+      "delta": 0.2915532865153515
+    },
+    "s0": 1.0200085169450877,
+    "neg_log_lik": 599.6748998369644,
+    "persistence": 0.666706118046315,
+    "z_quantile": -2.5041655314419384,
+    "var_level": 0.01,
+    "fit_start": "2021-07-26",
+    "fit_end": "2026-10-26",
+    "n_obs": 1299,
+    "last_date": "2026-10-26",
+    "sigma2_next": 1.0803671093819376,
+    "var_99_next": 0.026028474207310474,
+    "name": "Max Sharpe",
+    "inception_state": {
+      "last_date": "2026-10-26",
+      "sigma2_next": 1.0803671093819376,
+      "var_99_next": 0.026028474207310474
+    }
+  }
+}

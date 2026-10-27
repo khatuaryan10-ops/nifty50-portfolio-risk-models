@@ -1,0 +1,4 @@
+date,portfolio,value,daily_return,cumulative_return,vol_60d,drawdown,max_drawdown,var_99_next,breach,max_weight_drift,sigma2_next,flags
+2026-10-26,Min variance,100,,0,,0,0,0.01764048939,,0,0.4759595517,inception
+2026-10-26,Max Sharpe,100,,0,,0,0,0.02602847421,,0,1.080367109,inception
+2026-10-26,Nifty 50 price index (excludes dividends),100,,0,,0,0,,,,,inception

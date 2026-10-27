@@ -8,6 +8,11 @@ nifty50_portfolios.csv
 
 __pycache__/
 *.pyc
+.pytest_cache/
+*.tmp
+
+# Dashboard, built and deployed to GitHub Pages by the workflow
+site/
 .venv/
 venv/
 .ipynb_checkpoints/

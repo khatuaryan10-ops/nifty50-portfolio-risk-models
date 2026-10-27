@@ -1,0 +1,83 @@
+name: Daily tracker
+
+on:
+  schedule:
+    - cron: "0 18 * * 1-5"    # 18:00 UTC = 23:30 IST, Monday to Friday
+  workflow_dispatch:
+
+concurrency:                   # a manual run never overlaps the scheduled one
+  group: daily-tracker
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write          # to commit data/ and state/
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install requirements
+        run: pip install -r requirements.txt
+
+      - name: Update tracker
+        run: python tracker.py update
+
+      # Runs even if the update failed, so the job_log.csv row recording the error
+      # is committed; the job is still marked failed.
+      - name: Commit data and state
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/ state/
+          if git diff --cached --quiet; then
+            echo "Nothing to commit"
+            exit 0
+          fi
+          git commit -m "Daily tracker update $(date -u +%Y-%m-%d)"
+          git push
+
+  # Rebuild the dashboard from whatever is now on main, even after a failed update,
+  # so the page always shows the latest stored data and the latest run status.
+  dashboard:
+    needs: update
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install requirements
+        run: pip install -r requirements.txt
+
+      - name: Build dashboard
+        run: python tracker.py dashboard
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
