@@ -176,6 +176,25 @@ def test_incomplete_latest_date_waits_and_is_filled_later(store, market):
     assert rets.loc[day, "AAA"] == pytest.approx(market.total_returns("AAA")[day])
 
 
+def test_latest_session_skipped_is_logged_and_filled_later(store, market):
+    day = pd.Timestamp("2026-10-01")
+    nifty = market.close.at[day, "^NSEI"]
+    market.close.at[day, "^NSEI"] = np.nan               # index close not published yet
+    run_update(store, at("2026-10-01"), market.fetch)
+    assert day not in stored_returns(store).index
+    assert "2026-10-01: skipped, no Nifty 50 close" in store.read("job_log.csv").iloc[-1].warnings
+
+    def no_latest_row(symbols, start, end):              # the row is missing altogether
+        out = market.fetch(symbols, start, end)
+        return {k: f.drop(index=day, errors="ignore") for k, f in out.items()}
+    run_update(store, at("2026-10-01"), no_latest_row)
+    assert "2026-10-01: not in the download" in store.read("job_log.csv").iloc[-1].warnings
+
+    market.close.at[day, "^NSEI"] = nifty
+    run_update(store, at("2026-10-01"), market.fetch)
+    assert day in stored_returns(store).index
+
+
 def test_dashboard_embeds_the_tracker_data(store, market, tmp_path):
     import json
     import re

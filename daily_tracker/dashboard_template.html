@@ -98,6 +98,13 @@ footer a { color: var(--ink-2); }
     <div class="chart" id="chart-dd"></div>
   </section>
 
+  <section class="card">
+    <h2>Realised volatility since inception</h2>
+    <p class="note">Annualised root-mean-square of daily returns from inception to each date, the quantity the GARCH model forecasts. Starts after 5 trading days; with few days it moves a lot and carries a wide error band.</p>
+    <div class="legend" id="legend-vol"></div>
+    <div class="chart" id="chart-vol"></div>
+  </section>
+
   <div class="grid2" id="var-cards"></div>
 
   <div class="grid2">
@@ -182,7 +189,7 @@ document.getElementById("subtitle").textContent =
     b,
     el("span", {}, `Data to ${fmtDate(D.last_date)}`),
     el("span", {}, `Updated ${D.generated_at}`),
-    el("span", {}, "Next update: weekdays 23:30 IST"),
+    el("span", {}, "Updates: weekday evenings (IST)"),
   ];
   if (log.warnings) items.push(el("span", { class: "note", style: "margin:0" }, log.warnings.split(" | ").slice(0, 2).join("; ")));
   s.append(...items);
@@ -254,13 +261,13 @@ function lineChart(id, list, opt) {
   const root = document.getElementById(id);
   root.replaceChildren();
   const dates = list[0].rows.map(r => r.date);
-  if (dates.length < 2) {
-    root.append(el("div", { class: "empty" }, "The chart starts after the first trading day is recorded."));
+  const vals = list.flatMap(s => s.rows.map(opt.y)).filter(v => v != null);
+  if (dates.length < 2 || vals.length < 2) {
+    root.append(el("div", { class: "empty" }, opt.emptyText || "The chart starts after the first trading day is recorded."));
     return;
   }
   const W = root.clientWidth, H = opt.height || 260;
   const m = { l: 52, r: opt.endLabels ? 110 : 12, t: 10, b: 26 };
-  const vals = list.flatMap(s => s.rows.map(opt.y)).filter(v => v != null);
   let lo = Math.min(...vals, ...(opt.include || [])), hi = Math.max(...vals, ...(opt.include || []));
   const pad = (hi - lo) * 0.08 || Math.abs(hi) * 0.01 || 0.01;
   lo -= pad; hi += pad;
@@ -458,6 +465,10 @@ function render() {
   legend("legend-dd", series);
   lineChart("chart-dd", series, { y: r => r.drawdown, fmtTick: v => pct(v, 1), fmtVal: v => pct(v), include: [0],
     baseline: 0, height: 200, label: "Drawdown" });
+  legend("legend-vol", series);
+  lineChart("chart-vol", series, { y: r => r.realised_vol, fmtTick: v => pct(v, 0), fmtVal: v => pct(v, 1),
+    include: [0], baseline: 0, endLabels: true, height: 240, label: "Realised volatility since inception",
+    emptyText: "The chart starts after 5 trading days." });
   const vc = document.getElementById("var-cards");
   vc.replaceChildren();
   ports.forEach((p, i) => {

@@ -183,7 +183,7 @@ On Friday runs, `max_sharpe` and `min_variance_for_target` are re-solved on the 
 | `data/tracker.csv`, `returns.csv`, `weights.csv` | Daily metrics, returns (plus India VIX) and drifted weights |
 | `data/rebalances.csv`, `reoptimised_weights.csv`, `job_log.csv`, `prices_raw.csv` | Logs and audit data |
 
-`.github/workflows/daily_tracker.yml` runs `update` Monday to Friday at 18:00 UTC (23:30 IST), commits `data/` and `state/`, then rebuilds the dashboard and deploys it to GitHub Pages. It can also be started by hand from the Actions tab. GitHub may start scheduled runs late, and it disables schedules in public repositories after 60 days without activity.
+`.github/workflows/daily_tracker.yml` runs `update` Monday to Friday at 16:00 IST, with a backup run at 19:00 IST, and commits `data/` and `state/`, then rebuilds the dashboard and deploys it to GitHub Pages. It can also be started by hand from the Actions tab. GitHub often starts scheduled runs hours late, so the backup and the idempotent update make sure each session goes in the same evening. GitHub also disables schedules in public repositories after 60 days without activity.
 
 ### Tracker limitations
 

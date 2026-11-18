@@ -75,6 +75,7 @@ def _update(store, now, fetch, warnings):
     # in), and so does everything after it; after HOLD_SESSIONS more sessions it goes in
     # with 0% for the missing stocks. Stored dates stay sessions for the revision check.
     days, incomplete = trading_days(raw["close"], stocks, last_complete)
+    warnings += _unused_rows(raw["close"], days, incomplete, timeline[-1], last_complete)
     days = days.union(incomplete[incomplete.isin(stored.index)])
     cutoff = None
     for d in incomplete[incomplete > timeline[-1]]:
@@ -160,6 +161,21 @@ def _update(store, now, fetch, warnings):
     store.write("rebalances.csv", _splice(rebalances, rrows, from_date)[REBALANCE_COLS])
     store.save_models(models)
     return len(new_dates), revisions
+
+
+def _unused_rows(close, days, incomplete, last_stored, last_complete):
+    """Say why any new date in the download was not used, and whether the latest
+    complete weekday is missing, so a late or partial Yahoo update is never silent."""
+    warnings = []
+    rows = close.index[(close.index > last_stored) & (close.index <= last_complete)]
+    for d in rows.difference(days).difference(incomplete):
+        reason = ("no Nifty 50 close" if pd.isna(close.at[d, NIFTY])
+                  else "prices unchanged from the previous row")
+        warnings.append(f"{d.date()}: skipped, {reason}; treated as no session")
+    if last_complete.weekday() < 5 and last_complete > last_stored and last_complete not in rows:
+        warnings.append(f"{last_complete.date()}: not in the download "
+                        "(a market holiday, or Yahoo has not published it yet)")
+    return warnings
 
 
 def _history(tracker, name, prev_date):

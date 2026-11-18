@@ -1,8 +1,13 @@
 name: Daily tracker
 
 on:
+  # GitHub starts scheduled runs late (3.5 to 7 hours in Oct-Nov 2026), and runs that
+  # landed after midnight IST kept missing the session that had just closed. So run in
+  # the Indian evening, Monday to Friday, with a later backup; extra runs are harmless
+  # because update is idempotent.
   schedule:
-    - cron: "0 18 * * 1-5"    # 18:00 UTC = 23:30 IST, Monday to Friday
+    - cron: "30 10 * * 1-5"   # 10:30 UTC = 16:00 IST, after the 15:30 close
+    - cron: "30 13 * * 1-5"   # 13:30 UTC = 19:00 IST, backup
   workflow_dispatch:
 
 concurrency:                   # a manual run never overlaps the scheduled one

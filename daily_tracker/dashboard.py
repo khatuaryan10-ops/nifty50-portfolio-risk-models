@@ -4,11 +4,14 @@ published to GitHub Pages by the daily workflow."""
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
+from .accounting import TRADING_DAYS
 from .store import LOG_COLS, REBALANCE_COLS, REOPT_COLS, TRACKER_COLS
 
 TEMPLATE = Path(__file__).with_name("dashboard_template.html")
+MIN_VOL_DAYS = 5
 SHORT = {"Min variance": "Min var", "Max Sharpe": "Max Sharpe"}
 REPO_URL = "https://github.com/khatuaryan10-ops/nifty50-portfolio-risk-models"
 
@@ -25,7 +28,12 @@ def _records(df):
 def _series(tracker, name, short):
     t = tracker[tracker.portfolio == name].sort_values("date").copy()
     t["var_prev"] = t.var_99_next.shift(1)        # the VaR each day's loss is judged against
-    cols = ["date", "value", "daily_return", "cumulative_return", "vol_60d", "drawdown",
+    # realised vol since inception: annualised RMS of daily returns (not demeaned, the
+    # quantity the GARCH model forecasts), from the MIN_VOL_DAYS-th return on
+    r2 = t.daily_return ** 2
+    n = r2.notna().cumsum()
+    t["realised_vol"] = np.sqrt(r2.cumsum() / n * TRADING_DAYS).where(n >= MIN_VOL_DAYS)
+    cols = ["date", "value", "daily_return", "cumulative_return", "vol_60d", "realised_vol", "drawdown",
             "max_drawdown", "var_99_next", "var_prev", "breach", "max_weight_drift", "flags"]
     return {"name": name, "short": short, "rows": _records(t[cols])}
 
