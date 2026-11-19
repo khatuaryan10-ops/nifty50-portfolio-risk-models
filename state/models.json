@@ -18,8 +18,8 @@
     "fit_end": "2026-10-26",
     "n_obs": 1299,
     "last_date": "2026-11-18",
-    "sigma2_next": 0.41740940089844436,
-    "var_99_next": 0.01651987355884603,
+    "sigma2_next": 0.41824698772196856,
+    "var_99_next": 0.016536439901136537,
     "name": "Min variance",
     "inception_state": {
       "last_date": "2026-10-26",
@@ -44,8 +44,8 @@
     "fit_end": "2026-10-26",
     "n_obs": 1299,
     "last_date": "2026-11-18",
-    "sigma2_next": 1.0015550164715126,
-    "var_99_next": 0.025061117844463698,
+    "sigma2_next": 1.0033534794110976,
+    "var_99_next": 0.025083608509321956,
     "name": "Max Sharpe",
     "inception_state": {
       "last_date": "2026-10-26",
