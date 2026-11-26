@@ -1,9 +1,11 @@
+from datetime import datetime
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from daily_tracker import data
-from daily_tracker.data import total_returns, validate
+from daily_tracker.data import IST, total_returns, validate
 from daily_tracker.update import run_update
 
 from conftest import INCEPTION, STOCKS, at
@@ -193,6 +195,26 @@ def test_latest_session_skipped_is_logged_and_filled_later(store, market):
     market.close.at[day, "^NSEI"] = nifty
     run_update(store, at("2026-10-01"), market.fetch)
     assert day in stored_returns(store).index
+
+
+def test_late_run_downloads_through_now_and_gets_the_latest_session(store, market):
+    """A run after midnight IST processes the previous session. With an end date of
+    midnight IST, already past, Yahoo returns that session as an empty row; the update
+    must download through now and ignore rows after the last complete session."""
+    def yahoo(symbols, start, end):
+        out = market.fetch(symbols, start, end)
+        if end is not None:                              # stale history: newest row empty
+            last = pd.Timestamp(end) - pd.Timedelta(days=1)
+            out["close"].loc[out["close"].index == last] = np.nan
+        return out
+    late = datetime.fromisoformat("2026-10-02T01:30").replace(tzinfo=IST)
+    run_update(store, late, yahoo)
+    assert market.calls[-1][1] is None
+    rets = stored_returns(store)
+    assert rets.index.max() == pd.Timestamp("2026-10-01")   # not 2 Oct, still trading
+    assert "skipped" not in str(store.read("job_log.csv").iloc[-1].warnings)
+    raw = store.read("prices_raw.csv")
+    assert raw.date.max() == pd.Timestamp("2026-10-01")
 
 
 def test_dashboard_embeds_the_tracker_data(store, market, tmp_path):

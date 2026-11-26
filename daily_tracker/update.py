@@ -62,9 +62,12 @@ def _update(store, now, fetch, warnings):
     if need < last_complete - pd.Timedelta(days=LOOKBACK_DAYS):
         warnings.append(f"gap since {timeline[-1].date()}: download widened to start "
                         f"{start.date()}")
+    # No end date: download through now. An end of midnight IST after last_complete is
+    # already past when a late scheduled run lands after midnight, and Yahoo then returns
+    # the newest session as an empty row until the next day. Rows after last_complete are
+    # dropped below (trading_days, _unused_rows, _save_raw).
     symbols = [s + ".NS" for s in stocks] + [NIFTY, VIX]
-    raw = fetch(symbols, start.strftime("%Y-%m-%d"),
-                (last_complete + pd.Timedelta(days=1)).strftime("%Y-%m-%d"))
+    raw = fetch(symbols, start.strftime("%Y-%m-%d"), None)
     raw = {k: f.rename(columns=lambda c: c.replace(".NS", "")) for k, f in raw.items()}
     failed = [s for s in stocks if raw["close"][s].isna().all()]
     if failed:

@@ -1,10 +1,10 @@
 name: Daily tracker
 
 on:
-  # GitHub starts scheduled runs late (3.5 to 7 hours in Oct-Nov 2026), and runs that
-  # landed after midnight IST kept missing the session that had just closed. So run in
-  # the Indian evening, Monday to Friday, with a later backup; extra runs are harmless
-  # because update is idempotent.
+  # GitHub starts scheduled runs late (7 to 12 hours in Nov 2026), so most land after
+  # midnight IST; update downloads through the time of the run, so a late run still gets
+  # the session that just closed. Run in the Indian evening, Monday to Friday, with a
+  # later backup; extra runs are harmless because update is idempotent.
   schedule:
     - cron: "30 10 * * 1-5"   # 10:30 UTC = 16:00 IST, after the 15:30 close
     - cron: "30 13 * * 1-5"   # 13:30 UTC = 19:00 IST, backup
@@ -21,9 +21,9 @@ jobs:
     permissions:
       contents: write          # to commit data/ and state/
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -61,13 +61,13 @@ jobs:
       id-token: write
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deploy.outputs.page_url || steps.deploy_retry.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -78,11 +78,27 @@ jobs:
       - name: Build dashboard
         run: python tracker.py dashboard
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site
+          include-hidden-files: true   # keep site/.nojekyll, as v3 did
+
+      # deploy-pages can look up the artifact before GitHub lists it and fail with
+      # 'No artifacts named "github-pages"' (actions/deploy-pages#451). Wait, and retry
+      # once after a longer wait; the job fails only if the retry fails too.
+      - name: Wait for the artifact to be listed
+        run: sleep 10
 
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
+        continue-on-error: true
+
+      - name: Wait before retrying the deploy
+        if: steps.deploy.outcome == 'failure'
+        run: sleep 30
+
+      - id: deploy_retry
+        if: steps.deploy.outcome == 'failure'
+        uses: actions/deploy-pages@v5

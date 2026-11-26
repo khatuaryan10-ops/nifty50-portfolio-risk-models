@@ -36,8 +36,11 @@ class FakeMarket:
         self.calls = []
 
     def fetch(self, symbols, start, end, auto_adjust=False):
+        """end=None returns every row in the fake, including dates after the run's
+        last complete session, as Yahoo does for a download through now."""
         self.calls.append((start, end))
-        sl = slice(pd.Timestamp(start), pd.Timestamp(end) - pd.Timedelta(days=1))
+        stop = None if end is None else pd.Timestamp(end) - pd.Timedelta(days=1)
+        sl = slice(pd.Timestamp(start), stop)
         return {"close": self.close.loc[sl, symbols].copy(),
                 "dividends": self.dividends.loc[sl, symbols].copy(),
                 "splits": self.splits.loc[sl, symbols].copy()}
