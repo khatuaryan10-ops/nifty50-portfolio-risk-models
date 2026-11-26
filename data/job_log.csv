@@ -29,3 +29,4 @@ run_time,command,status,dates_added,revisions,warnings,errors
 2026-11-25T04:40:20+05:30,update,warning,0,,"2026-11-24: not in the download (a market holiday, or Yahoo has not published it yet)",
 2026-11-26T01:33:03+05:30,update,warning,0,,"2026-11-25: skipped, no Nifty 50 close; treated as no session",
 2026-11-26T04:08:59+05:30,update,warning,0,,"2026-11-25: skipped, no Nifty 50 close; treated as no session",
+2026-11-26T10:27:49+05:30,update,warning,0,,"2026-11-25: too few stock prices yet, waiting for the next run",
